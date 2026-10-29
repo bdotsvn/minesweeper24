@@ -1,0 +1,2045 @@
+<!DOCTYPE html>
+<html lang="vi" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Radar Minesweeper 24 — Dò Mìn Tầm Xa 5x5</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        radar: {
+                            bg: '#070b14',
+                            panel: '#0f172a',
+                            border: '#1e293b',
+                            accent: '#06b6d4',
+                            emerald: '#10b981',
+                            amber: '#f59e0b',
+                            rose: '#f43f5e'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #060a12;
+            background-image: 
+                radial-gradient(circle at 15% 15%, rgba(6, 182, 212, 0.08) 0%, transparent 35%),
+                radial-gradient(circle at 85% 85%, rgba(16, 185, 129, 0.07) 0%, transparent 35%),
+                linear-gradient(rgba(30, 41, 59, 0.25) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(30, 41, 59, 0.25) 1px, transparent 1px);
+            background-size: 100% 100%, 100% 100%, 28px 28px, 28px 28px;
+            color: #e2e8f0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #06b6d4;
+        }
+
+        /* Grid & Cell Styling */
+        .board-grid {
+            display: grid;
+            gap: 2px;
+            background-color: #1e293b;
+            padding: 4px;
+            border-radius: 12px;
+            box-shadow: 0 0 30px rgba(6, 182, 212, 0.12), inset 0 0 15px rgba(0, 0, 0, 0.7);
+            position: relative;
+        }
+
+        .mine-cell {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            border-radius: 4px;
+            transition: transform 0.08s ease, background-color 0.12s ease, box-shadow 0.12s ease;
+            cursor: pointer;
+        }
+
+        .cell-unrevealed {
+            background: linear-gradient(145deg, #1e293b, #151e2e);
+            border: 1px solid #334155;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+        }
+        .cell-unrevealed:hover {
+            background: linear-gradient(145deg, #283548, #1e293b);
+            border-color: #38bdf8;
+        }
+
+        .cell-revealed {
+            background-color: #090e1a;
+            border: 1px solid #162032;
+        }
+
+        .cell-zero {
+            background-color: #060911;
+            border: 1px solid #0d1424;
+        }
+
+        /* 5x5 Radar Hover Effects */
+        .radar-in-range-unrevealed {
+            background: linear-gradient(145deg, #163042, #102436) !important;
+            border-color: rgba(6, 182, 212, 0.65) !important;
+            box-shadow: inset 0 0 8px rgba(6, 182, 212, 0.28) !important;
+        }
+
+        .radar-in-range-revealed {
+            background-color: rgba(6, 182, 212, 0.09) !important;
+            border-color: rgba(6, 182, 212, 0.3) !important;
+        }
+
+        .radar-center-cell {
+            outline: 2px solid #22d3ee !important;
+            outline-offset: -1px;
+            z-index: 20;
+            box-shadow: 0 0 15px rgba(34, 211, 238, 0.6) !important;
+        }
+
+        /* Border edges for the 5x5 radar box */
+        .radar-edge-top { border-top: 2px solid #06b6d4 !important; }
+        .radar-edge-bottom { border-bottom: 2px solid #06b6d4 !important; }
+        .radar-edge-left { border-left: 2px solid #06b6d4 !important; }
+        .radar-edge-right { border-right: 2px solid #06b6d4 !important; }
+
+        /* CSP Hint Highlighting */
+        @keyframes pulseSafe {
+            0%, 100% {
+                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7), inset 0 0 12px rgba(16, 185, 129, 0.7);
+                border-color: #10b981;
+            }
+            50% {
+                box-shadow: 0 0 12px 3px rgba(16, 185, 129, 0.9), inset 0 0 18px rgba(16, 185, 129, 0.9);
+                border-color: #6ee7b7;
+            }
+        }
+
+        @keyframes pulseMine {
+            0%, 100% {
+                box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.7), inset 0 0 12px rgba(244, 63, 94, 0.7);
+                border-color: #f43f5e;
+            }
+            50% {
+                box-shadow: 0 0 12px 3px rgba(244, 63, 94, 0.9), inset 0 0 18px rgba(244, 63, 94, 0.9);
+                border-color: #fda4af;
+            }
+        }
+
+        .csp-hint-safe {
+            animation: pulseSafe 1.3s infinite ease-in-out !important;
+            background: rgba(16, 185, 129, 0.25) !important;
+            z-index: 15;
+        }
+
+        .csp-hint-mine {
+            animation: pulseMine 1.3s infinite ease-in-out !important;
+            background: rgba(244, 63, 94, 0.25) !important;
+            z-index: 15;
+        }
+
+        .csp-pivot-source {
+            outline: 2px dashed #f59e0b !important;
+            outline-offset: -2px;
+            z-index: 14;
+        }
+
+        /* High-contrast palette for numbers 1 to 24 */
+        .num-1  { color: #38bdf8; } /* Sky Blue */
+        .num-2  { color: #4ade80; } /* Emerald Green */
+        .num-3  { color: #fb7185; } /* Rose Coral */
+        .num-4  { color: #c084fc; } /* Purple */
+        .num-5  { color: #fbbf24; } /* Amber */
+        .num-6  { color: #2dd4bf; } /* Teal */
+        .num-7  { color: #f472b6; } /* Pink */
+        .num-8  { color: #a3e635; } /* Lime */
+        .num-9  { color: #fb923c; } /* Orange */
+        .num-10 { color: #60a5fa; text-shadow: 0 0 6px rgba(96,165,250,0.4); }
+        .num-11 { color: #f87171; text-shadow: 0 0 6px rgba(248,113,113,0.4); }
+        .num-12 { color: #e879f9; text-shadow: 0 0 6px rgba(232,121,249,0.4); }
+        .num-13 { color: #facc15; text-shadow: 0 0 8px rgba(250,204,21,0.5); }
+        .num-14 { color: #34d399; text-shadow: 0 0 8px rgba(52,211,153,0.5); }
+        .num-15 { color: #ff6b6b; text-shadow: 0 0 8px rgba(255,107,107,0.6); }
+        .num-16 { color: #a78bfa; text-shadow: 0 0 8px rgba(167,139,250,0.6); }
+        .num-high { color: #ffffff; background: rgba(244, 63, 94, 0.35); border-radius: 3px; padding: 0 2px; text-shadow: 0 0 8px #f43f5e; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans antialiased selection:bg-cyan-500 selection:text-slate-950">
+
+    <!-- TOP HEADER BAR -->
+    <header class="border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-md sticky top-0 z-30">
+        <div class="max-w-[1600px] mx-auto px-4 py-2.5 flex flex-wrap items-center justify-between gap-3">
+            <!-- Brand Title -->
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/20 to-emerald-500/20 border border-cyan-500/40 flex items-center justify-center shadow-lg shadow-cyan-500/10">
+                    <i class="fa-solid fa-satellite-dish text-cyan-400 text-lg animate-pulse"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-base sm:text-lg font-extrabold tracking-tight bg-gradient-to-r from-cyan-300 via-sky-200 to-emerald-300 bg-clip-text text-transparent">
+                            RADAR MINESWEEPER 24
+                        </h1>
+                        <span class="px-2 py-0.5 text-[11px] font-mono font-semibold uppercase rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                            5x5 • 24 Ô Lân Cận
+                        </span>
+                    </div>
+                    <p class="text-xs text-slate-400 hidden sm:block">
+                        Biến thể Dò Mìn Tầm Xa Chebyshev <span class="font-mono text-cyan-400">max(|Δr|, |Δc|) ≤ 2</span> tích hợp Bộ Giải Tất Định CSP 3 Tầng
+                    </p>
+                </div>
+            </div>
+
+            <!-- Preset & Controls Toolbar -->
+            <div class="flex flex-wrap items-center gap-2">
+                <!-- Difficulty Presets -->
+                <div class="flex items-center bg-slate-900 p-1 rounded-lg border border-slate-800 text-xs font-medium">
+                    <button onclick="setPreset('beginner')" id="btn-preset-beginner" class="px-2.5 py-1.5 rounded-md transition-all bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
+                        Cơ bản (10×10, 12💣)
+                    </button>
+                    <button onclick="setPreset('intermediate')" id="btn-preset-intermediate" class="px-2.5 py-1.5 rounded-md transition-all text-slate-400 hover:text-slate-200">
+                        Trung bình (14×14, 28💣)
+                    </button>
+                    <button onclick="setPreset('expert')" id="btn-preset-expert" class="px-2.5 py-1.5 rounded-md transition-all text-slate-400 hover:text-slate-200">
+                        Chuyên gia (16×22, 55💣)
+                    </button>
+                    <button onclick="toggleCustomModal()" id="btn-preset-custom" class="px-2.5 py-1.5 rounded-md transition-all text-slate-400 hover:text-slate-200">
+                        <i class="fa-solid fa-sliders mr-1"></i>Tùy chỉnh
+                    </button>
+                </div>
+
+                <!-- No-Guess Toggle -->
+                <button onclick="toggleNoGuessMode()" id="btn-noguess" title="Đảm bảo 100% bảng sinh ra có thể giải thuần túy bằng suy luận CSP mà không cần đoán" class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all bg-emerald-500/15 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/25">
+                    <i class="fa-solid fa-shield-check text-emerald-400" id="icon-noguess"></i>
+                    <span>Sinh bảng Tất Định CSP: <strong id="text-noguess">BẬT</strong></span>
+                </button>
+
+                <!-- Sound Toggle -->
+                <button onclick="toggleSound()" id="btn-sound" class="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-cyan-400 transition-colors" title="Bật/Tắt âm thanh Radar">
+                    <i class="fa-solid fa-volume-high" id="icon-sound"></i>
+                </button>
+
+                <!-- Rules Help Button -->
+                <button onclick="toggleRulesModal()" class="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs font-medium text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300 transition-all">
+                    <i class="fa-solid fa-circle-question mr-1 text-cyan-400"></i>Luật 24 Ô
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN WORKSPACE -->
+    <main class="flex-1 max-w-[1600px] w-full mx-auto p-3 sm:p-4 grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
+
+        <!-- LEFT & CENTER: GAME BOARD & HUD (8 Cols on XL) -->
+        <section class="xl:col-span-8 flex flex-col gap-3">
+            
+            <!-- Tactical Status HUD Bar -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 shadow-lg">
+                <!-- Left Metrics: Mines & Progress -->
+                <div class="flex items-center gap-3 sm:gap-5">
+                    <div class="flex items-center gap-2.5 bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800/80">
+                        <i class="fa-solid fa-land-mine-on text-rose-500 text-base"></i>
+                        <div>
+                            <div class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Mìn Còn Lại</div>
+                            <div id="hud-mines" class="text-lg font-mono font-bold text-rose-400 leading-none">012</div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2.5 bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800/80">
+                        <i class="fa-solid fa-stopwatch text-cyan-400 text-base"></i>
+                        <div>
+                            <div class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Thời Gian</div>
+                            <div id="hud-timer" class="text-lg font-mono font-bold text-cyan-300 leading-none">00:00</div>
+                        </div>
+                    </div>
+
+                    <div class="hidden sm:flex items-center gap-2.5 bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800/80">
+                        <i class="fa-solid fa-chart-pie text-emerald-400 text-base"></i>
+                        <div>
+                            <div class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Tiến Độ Mở</div>
+                            <div id="hud-progress" class="text-lg font-mono font-bold text-emerald-400 leading-none">0%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Center Reset & Verification Badge -->
+                <div class="flex items-center gap-2">
+                    <button onclick="resetGame()" class="px-3.5 py-2 rounded-lg bg-gradient-to-r from-cyan-600 to-sky-600 hover:from-cyan-500 hover:to-sky-500 text-white font-semibold text-xs flex items-center gap-2 shadow-md shadow-cyan-500/20 active:scale-95 transition-all">
+                        <i class="fa-solid fa-rotate" id="status-icon"></i>
+                        <span id="status-text">Ván Mới</span>
+                    </button>
+                </div>
+
+                <!-- Right Controls: Input Mode Switch & Zoom -->
+                <div class="flex items-center gap-2">
+                    <!-- Left-Click Action Switch (for Mobile / Trackpad convenience) -->
+                    <div class="flex items-center bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
+                        <button onclick="setInputMode('reveal')" id="mode-btn-reveal" class="px-2.5 py-1 rounded-md font-medium flex items-center gap-1.5 bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 transition-all">
+                            <i class="fa-solid fa-crosshairs"></i> Mở Ô
+                        </button>
+                        <button onclick="setInputMode('flag')" id="mode-btn-flag" class="px-2.5 py-1 rounded-md font-medium flex items-center gap-1.5 text-slate-400 hover:text-slate-200 transition-all">
+                            <i class="fa-solid fa-flag text-rose-400"></i> Cắm Cờ
+                        </button>
+                    </div>
+
+                    <!-- Cell Size Zoom -->
+                    <div class="hidden md:flex items-center bg-slate-950 rounded-lg border border-slate-800 p-1 text-xs">
+                        <button onclick="adjustCellSize(-4)" class="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-white" title="Thu nhỏ ô">
+                            <i class="fa-solid fa-minus"></i>
+                        </button>
+                        <span id="cell-size-label" class="px-1.5 font-mono text-[11px] text-slate-400">36px</span>
+                        <button onclick="adjustCellSize(4)" class="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-white" title="Phóng to ô">
+                            <i class="fa-solid fa-plus"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CSP Board Status Banner & Solver Action Bar -->
+            <div class="bg-slate-900/75 border border-slate-800/90 rounded-xl px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2">
+                <!-- Verification Badge -->
+                <div class="flex items-center gap-2 text-xs">
+                    <span id="csp-badge" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-mono font-medium bg-slate-800 text-slate-300 border border-slate-700">
+                        <i class="fa-solid fa-circle-info text-cyan-400"></i>
+                        <span>Chờ nước đi đầu tiên (Vùng 5×5 đầu tiên luôn = 0 mìn)</span>
+                    </span>
+                </div>
+
+                <!-- CSP Assistant Actions -->
+                <div class="flex flex-wrap items-center gap-2">
+                    <button onclick="runCSPHint()" id="btn-csp-hint" class="px-3 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        <span>Gợi ý CSP (Soi nước đi)</span>
+                    </button>
+
+                    <button onclick="runCSPStep()" id="btn-csp-step" class="px-3 py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95">
+                        <i class="fa-solid fa-forward-step"></i>
+                        <span>Giải 1 Bước CSP</span>
+                    </button>
+
+                    <button onclick="toggleAutoSolve()" id="btn-csp-auto" class="px-3 py-1.5 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95">
+                        <i class="fa-solid fa-robot" id="icon-auto-solve"></i>
+                        <span id="text-auto-solve">Tự Động Giải Hết</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Interactive Board Container -->
+            <div class="bg-slate-950/90 border border-slate-800/90 rounded-2xl p-3 sm:p-5 flex flex-col items-center justify-center min-h-[460px] overflow-auto relative shadow-2xl">
+                <div id="board-container" class="board-grid" oncontextmenu="return false;"></div>
+
+                <!-- Legend Footer under board -->
+                <div class="mt-4 flex flex-wrap items-center justify-center gap-4 text-[11px] text-slate-400">
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-3 h-3 rounded-sm border border-cyan-400 bg-cyan-500/20 inline-block"></span>
+                        <span>Khung xanh lơ: Phạm vi Radar 5×5 (tối đa 24 ô quanh tâm)</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-3 h-3 rounded-sm border border-emerald-400 bg-emerald-500/30 inline-block"></span>
+                        <span>Xanh lá nhấp nháy: Ô An Toàn 100% (CSP)</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-3 h-3 rounded-sm border border-rose-400 bg-rose-500/30 inline-block"></span>
+                        <span>Đỏ nhấp nháy: Ô Chứa Mìn 100% (CSP)</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <i class="fa-solid fa-computer-mouse text-cyan-400"></i>
+                        <span>Nhấp vào số đã mở đủ cờ để mở nhanh toàn bộ vùng 5×5 (Chord)</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- RIGHT SIDEBAR: RADAR INSPECTOR & LIVE CSP DEDUCTION LOG (4 Cols on XL) -->
+        <aside class="xl:col-span-4 flex flex-col gap-4">
+            
+            <!-- STAGE 2: 5x5 RADAR INSPECTOR PANEL -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-xl">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2.5 mb-3">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-crosshairs text-cyan-400"></i>
+                        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-200">
+                            Trạm Phân Tích Radar 5×5 (24 Hướng)
+                        </h2>
+                    </div>
+                    <span id="inspector-coords" class="font-mono text-xs px-2 py-0.5 rounded bg-slate-950 text-cyan-400 border border-slate-800">
+                        Tâm: [-- , --]
+                    </span>
+                </div>
+
+                <!-- Mini 5x5 Radar Visualizer + Stats -->
+                <div class="grid grid-cols-12 gap-3 items-center">
+                    <!-- 5x5 Mini Grid -->
+                    <div class="col-span-5 flex flex-col items-center">
+                        <div id="mini-radar-grid" class="grid grid-cols-5 gap-1 p-2 bg-slate-950 rounded-lg border border-cyan-500/30 shadow-inner">
+                            <!-- Populated dynamically via JS -->
+                        </div>
+                        <span class="text-[10px] font-mono text-slate-400 mt-1.5">Mô phỏng Cửa sổ 5×5</span>
+                    </div>
+
+                    <!-- Telemetry Metrics -->
+                    <div class="col-span-7 space-y-2 text-xs">
+                        <div class="flex justify-between items-center bg-slate-950/80 px-2.5 py-1.5 rounded border border-slate-800/80">
+                            <span class="text-slate-400">Số ô thuộc vùng 5×5:</span>
+                            <span id="insp-total-nb" class="font-mono font-bold text-slate-200">24 ô</span>
+                        </div>
+                        <div class="flex justify-between items-center bg-slate-950/80 px-2.5 py-1.5 rounded border border-slate-800/80">
+                            <span class="text-slate-400">Giá trị báo cáo <code class="text-cyan-400">v(u)</code>:</span>
+                            <span id="insp-val" class="font-mono font-bold text-cyan-300">--</span>
+                        </div>
+                        <div class="flex justify-between items-center bg-slate-950/80 px-2.5 py-1.5 rounded border border-slate-800/80">
+                            <span class="text-slate-400">Số cờ đã cắm <code class="text-rose-400">|F|</code>:</span>
+                            <span id="insp-flags" class="font-mono font-bold text-rose-400">0</span>
+                        </div>
+                        <div class="flex justify-between items-center bg-slate-950/80 px-2.5 py-1.5 rounded border border-slate-800/80">
+                            <span class="text-slate-400">Biến ẩn chưa mở <code class="text-amber-300">|N_X|</code>:</span>
+                            <span id="insp-unrev" class="font-mono font-bold text-amber-300">0</span>
+                        </div>
+                        <div class="flex justify-between items-center bg-cyan-950/40 px-2.5 py-1.5 rounded border border-cyan-500/30">
+                            <span class="text-cyan-200 font-medium">Mìn còn thiếu <code class="text-cyan-300">b_u</code>:</span>
+                            <span id="insp-rem" class="font-mono font-extrabold text-cyan-300">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Constraint Equation Box -->
+                <div class="mt-3 bg-slate-950 rounded-lg p-2.5 border border-slate-800/90 font-mono text-[11px]">
+                    <div class="text-slate-400 mb-1 flex items-center justify-between">
+                        <span>Phương trình ràng buộc cục bộ 5×5:</span>
+                        <span id="insp-status-tag" class="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-300">Rê chuột lên bảng</span>
+                    </div>
+                    <div id="insp-equation" class="text-cyan-300 break-all leading-relaxed">
+                        ∑ x_i (trong vùng 5×5) = b_u
+                    </div>
+                </div>
+            </div>
+
+            <!-- STAGE 3 & 4: MATHEMATICAL CSP SOLVER ENGINE & LOG -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-xl flex flex-col flex-1">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2.5 mb-3">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-microchip text-emerald-400"></i>
+                        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-200">
+                            Nhật Ký Suy Luận Toán Học CSP 3 Tầng
+                        </h2>
+                    </div>
+                    <button onclick="clearCSPLog()" class="text-[11px] text-slate-400 hover:text-slate-200">
+                        <i class="fa-solid fa-trash-can mr-1"></i>Xóa log
+                    </button>
+                </div>
+
+                <!-- 3-Tier Architecture Status Pills -->
+                <div class="grid grid-cols-3 gap-1.5 mb-3 text-[11px]">
+                    <div id="tier-pill-1" class="bg-slate-950 border border-slate-800 rounded-lg p-2 text-center transition-all">
+                        <div class="font-bold text-sky-400">Tầng 1</div>
+                        <div class="text-[10px] text-slate-400 truncate">Đơn điểm & Tập con</div>
+                    </div>
+                    <div id="tier-pill-2" class="bg-slate-950 border border-slate-800 rounded-lg p-2 text-center transition-all">
+                        <div class="font-bold text-amber-400">Tầng 2</div>
+                        <div class="text-[10px] text-slate-400 truncate">Gauss-Jordan RREF</div>
+                    </div>
+                    <div id="tier-pill-3" class="bg-slate-950 border border-slate-800 rounded-lg p-2 text-center transition-all">
+                        <div class="font-bold text-purple-400">Tầng 3</div>
+                        <div class="text-[10px] text-slate-400 truncate">Hạt nhân & Toàn cục</div>
+                    </div>
+                </div>
+
+                <!-- Scrollable Deduction Feed -->
+                <div id="csp-log-container" class="bg-slate-950 border border-slate-800/90 rounded-lg p-3 font-mono text-xs space-y-2.5 h-[300px] overflow-y-auto">
+                    <div class="text-slate-400 leading-relaxed">
+                        <span class="text-cyan-400 font-bold">[HỆ THỐNG]</span> Sẵn sàng phân tích ma trận ràng buộc nhị phân 24 hướng (<code class="text-emerald-300">Ax = b</code>). Hãy mở ô đầu tiên để kích hoạt vùng lan truyền 5×5!
+                    </div>
+                </div>
+            </div>
+
+        </aside>
+    </main>
+
+    <!-- MODAL 1: CUSTOM BOARD CONFIGURATION -->
+    <div id="modal-custom" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-5 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-cyan-400"></i>
+                    Thiết Lập Bảng Radar 5×5 Tùy Chỉnh
+                </h3>
+                <button onclick="toggleCustomModal()" class="text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <div class="space-y-4 text-xs">
+                <div>
+                    <label class="block text-slate-300 font-semibold mb-1">Số Hàng (Rows: 8 – 24)</label>
+                    <input type="number" id="custom-rows" min="8" max="24" value="12" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono focus:border-cyan-400 outline-none">
+                </div>
+                <div>
+                    <label class="block text-slate-300 font-semibold mb-1">Số Cột (Cols: 8 – 30)</label>
+                    <input type="number" id="custom-cols" min="8" max="30" value="16" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono focus:border-cyan-400 outline-none">
+                </div>
+                <div>
+                    <label class="block text-slate-300 font-semibold mb-1">Số Lượng Mìn (Khuyến nghị mật độ 10% – 18% cho vùng 5×5)</label>
+                    <input type="number" id="custom-mines" min="5" max="150" value="24" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono focus:border-cyan-400 outline-none">
+                </div>
+                <div class="p-3 rounded-lg bg-cyan-950/40 border border-cyan-500/30 text-cyan-200 leading-relaxed">
+                    <i class="fa-solid fa-lightbulb text-amber-400 mr-1"></i>
+                    <strong>Lưu ý Toán học:</strong> Vì vùng đầu tiên đảm bảo trống toàn bộ cửa sổ 5×5 (tối đa 25 ô), xác suất mở màn bằng 0 tuân theo <code class="font-mono">(1 - ρ)^24</code>. Ở mật độ ~12%–16%, các con số giao thoa cực kỳ thú vị!
+                </div>
+            </div>
+            <div class="mt-5 flex justify-end gap-2">
+                <button onclick="toggleCustomModal()" class="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 text-xs font-semibold hover:bg-slate-700">Hủy</button>
+                <button onclick="applyCustomConfig()" class="px-4 py-2 rounded-lg bg-cyan-600 text-white text-xs font-semibold hover:bg-cyan-500">Áp Dụng & Chơi</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 2: RULES & MATHEMATICAL EXPLANATION -->
+    <div id="modal-rules" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-satellite-dish text-cyan-400"></i>
+                    Cơ Chế Dò Mìn Tầm Xa 24 Ô (Radar 5×5) & Giải Thuật CSP
+                </h3>
+                <button onclick="toggleRulesModal()" class="text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <div class="space-y-4 text-xs text-slate-300 leading-relaxed">
+                <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800">
+                    <h4 class="font-bold text-cyan-400 text-sm mb-1">1. Quy tắc Cửa Sổ Radar 5×5 (Tối đa 24 ô lân cận)</h4>
+                    <p>
+                        Thay vì chỉ đếm 8 ô xung quanh (3×3) như Minesweeper cổ điển, mỗi con số tại ô <code class="text-amber-300">(r, c)</code> cho biết tổng số mìn nằm trong <strong>vùng hình vuông 5×5</strong> có tâm tại chính nó (khoảng cách Chebyshev <code class="text-cyan-300">max(|r - r'|, |c - c'|) ≤ 2</code>, gồm tối đa <strong>24 ô xung quanh</strong>).
+                    </p>
+                </div>
+
+                <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800">
+                    <h4 class="font-bold text-emerald-400 text-sm mb-1">2. Phép Trừ Giao Thoa Tập Hợp & Khử Gauss-Jordan RREF</h4>
+                    <p>
+                        Khi hai ô số nằm cạnh nhau, hai cửa sổ 5×5 của chúng giao nhau tới <strong>20 ô chung</strong>! Bằng cách lấy hiệu hai phương trình kề nhau (hoặc dùng nút <strong>Gợi ý CSP</strong>), toàn bộ các ô ở vùng giao nhau bị triệt tiêu, giúp lột trần vị trí mìn ở hai rìa ngoài của cửa sổ 5×5.
+                    </p>
+                </div>
+
+                <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800">
+                    <h4 class="font-bold text-amber-400 text-sm mb-1">3. Mẹo Chơi Tốc Độ Cao</h4>
+                    <ul class="list-disc list-inside space-y-1">
+                        <li><strong>Rê chuột lên một con số:</strong> Khung sáng màu xanh lơ sẽ khoanh vùng chính xác 24 ô thuộc quyền quản lý của số đó.</li>
+                        <li><strong>Mở nhanh (Chord Click):</strong> Khi một ô số đã được cắm đủ số cờ bằng giá trị của nó trong vùng 5×5, hãy nhấp chuột trái vào chính con số đó để mở bung toàn bộ các ô còn lại trong khung 5×5!</li>
+                        <li><strong>Trợ lý CSP 3 Tầng:</strong> Bất cứ khi nào gặp thế cờ phức tạp, bấm <em>"Gợi ý CSP"</em> hoặc <em>"Giải 1 Bước CSP"</em> để xem máy tính giải hệ phương trình tuyến tính nhị phân <code class="text-cyan-300">Ax = b</code> trực tiếp.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="mt-5 flex justify-end">
+                <button onclick="toggleRulesModal()" class="px-5 py-2 rounded-lg bg-cyan-600 text-white text-xs font-semibold hover:bg-cyan-500">Đã Hiểu, Bắt Đầu Dò!</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- APPLICATION LOGIC -->
+    <script>
+        /***********************************************************************
+         * AUDIO SYNTHESIZER (Web Audio API - No external files needed)
+         ***********************************************************************/
+        class RadarSoundEngine {
+            constructor() {
+                this.enabled = true;
+                this.ctx = null;
+            }
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (AudioCtx) this.ctx = new AudioCtx();
+                }
+            }
+            playTone(freq, type = 'sine', duration = 0.07, vol = 0.08) {
+                if (!this.enabled) return;
+                try {
+                    this.init();
+                    if (!this.ctx) return;
+                    if (this.ctx.state === 'suspended') this.ctx.resume();
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch (e) {}
+            }
+            click() { this.playTone(580, 'sine', 0.05, 0.06); }
+            flood() {
+                this.playTone(420, 'triangle', 0.12, 0.08);
+                setTimeout(() => this.playTone(680, 'sine', 0.14, 0.08), 45);
+            }
+            flag(placed) { this.playTone(placed ? 820 : 440, 'triangle', 0.07, 0.07); }
+            hint() {
+                this.playTone(660, 'sine', 0.08, 0.08);
+                setTimeout(() => this.playTone(990, 'sine', 0.12, 0.08), 60);
+            }
+            win() {
+                [523.25, 659.25, 783.99, 1046.5].forEach((f, idx) => {
+                    setTimeout(() => this.playTone(f, 'triangle', 0.18, 0.1), idx * 90);
+                });
+            }
+            boom() {
+                this.playTone(110, 'sawtooth', 0.35, 0.15);
+                setTimeout(() => this.playTone(75, 'square', 0.4, 0.12), 80);
+            }
+        }
+
+        const sound = new RadarSoundEngine();
+
+        /***********************************************************************
+         * STAGE 1 & STAGE 3: CORE 24-NEIGHBOR GAME STATE & 3-TIER CSP ENGINE
+         ***********************************************************************/
+        const PRESETS = {
+            beginner:     { rows: 10, cols: 10, mines: 12, name: 'Cơ bản (10×10, 12 mìn)' },
+            intermediate: { rows: 14, cols: 14, mines: 28, name: 'Trung bình (14×14, 28 mìn)' },
+            expert:       { rows: 16, cols: 22, mines: 55, name: 'Chuyên gia (16×22, 55 mìn)' }
+        };
+
+        let state = {
+            preset: 'beginner',
+            rows: 10,
+            cols: 10,
+            numMines: 12,
+            cellSize: 38,
+            noGuessMode: true,
+            inputMode: 'reveal', // 'reveal' | 'flag'
+
+            started: false,
+            gameOver: false,
+            won: false,
+
+            mines: new Set(),       // keys: "r,c"
+            board: [],              // 2D array: -1 for mine, 0..24 for safe
+            revealed: new Set(),    // keys: "r,c"
+            flagged: new Set(),     // keys: "r,c"
+
+            hoveredCell: null,      // [r, c]
+            hintSafe: new Set(),    // keys: "r,c"
+            hintMines: new Set(),   // keys: "r,c"
+            hintSources: new Set(), // keys: "r,c"
+
+            timerSeconds: 0,
+            timerInterval: null,
+            autoSolveInterval: null
+        };
+
+        function keyOf(r, c) { return `${r},${c}`; }
+        function parseKey(k) { const p = k.split(','); return [parseInt(p[0], 10), parseInt(p[1], 10)]; }
+        function coordLabel(r, c) { return `(${r + 1},${c + 1})`; }
+
+        /**
+         * Returns all valid cells within the 5x5 Radar neighborhood (Chebyshev distance <= 2)
+         * excluding (r, c) itself -> up to 24 neighbors.
+         */
+        function getNeighbors24(r, c, rows = state.rows, cols = state.cols) {
+            const res = [];
+            for (let dr = -2; dr <= 2; dr++) {
+                for (let dc = -2; dc <= 2; dc++) {
+                    if (dr === 0 && dc === 0) continue;
+                    const nr = r + dr;
+                    const nc = c + dc;
+                    if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+                        res.push([nr, nc]);
+                    }
+                }
+            }
+            return res;
+        }
+
+        /**
+         * Build 2D board counts using the 24-neighbor (5x5) rule
+         */
+        function computeBoardNumbers(rows, cols, mineSet) {
+            const b = Array.from({ length: rows }, () => Array(cols).fill(0));
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const k = keyOf(r, c);
+                    if (mineSet.has(k)) {
+                        b[r][c] = -1;
+                    } else {
+                        let count = 0;
+                        for (const [nr, nc] of getNeighbors24(r, c, rows, cols)) {
+                            if (mineSet.has(keyOf(nr, nc))) count++;
+                        }
+                        b[r][c] = count;
+                    }
+                }
+            }
+            return b;
+        }
+
+        /**
+         * Flood-fill expansion when revealing a cell:
+         * If board[r][c] == 0, all 24 neighbors in its 5x5 window are guaranteed safe and opened via BFS!
+         */
+        function floodRevealOnSet(r0, c0, rows, cols, board, revealedSet, flaggedSet) {
+            const queue = [[r0, c0]];
+            let newlyOpened = 0;
+            while (queue.length > 0) {
+                const [r, c] = queue.shift();
+                const k = keyOf(r, c);
+                if (revealedSet.has(k) || flaggedSet.has(k)) continue;
+                revealedSet.add(k);
+                newlyOpened++;
+                if (board[r][c] === 0) {
+                    for (const [nr, nc] of getNeighbors24(r, c, rows, cols)) {
+                        const nk = keyOf(nr, nc);
+                        if (!revealedSet.has(nk) && !flaggedSet.has(nk)) {
+                            queue.push([nr, nc]);
+                        }
+                    }
+                }
+            }
+            return newlyOpened;
+        }
+
+        /***********************************************************************
+         * STAGE 3: 3-TIER DETERMINISTIC CSP SOLVER FOR 5x5 RADAR CONSTRAINTS
+         ***********************************************************************/
+        class RadarCSPSolver {
+            /**
+             * Analyzes a board configuration (revealedSet, flaggedSet, rows, cols, numMines, board)
+             * and returns deterministic safe cells, deterministic mine cells, and detailed mathematical explanation!
+             */
+            static findNextStep(rows, cols, numMines, board, revealedSet, flaggedSet) {
+                // 1. Build local 5x5 equations from all revealed positive numbers
+                const equations = []; // { source: [r, c], vars: Set<string>, rhs: number }
+                const frontierSet = new Set();
+                const seenEqKeys = new Set();
+
+                for (const revKey of revealedSet) {
+                    const [r, c] = parseKey(revKey);
+                    const val = board[r][c];
+                    if (val <= 0) continue;
+
+                    const unrevealedNb = [];
+                    let flagsAround = 0;
+
+                    for (const [nr, nc] of getNeighbors24(r, c, rows, cols)) {
+                        const nk = keyOf(nr, nc);
+                        if (flaggedSet.has(nk)) {
+                            flagsAround++;
+                        } else if (!revealedSet.has(nk)) {
+                            unrevealedNb.push(nk);
+                        }
+                    }
+
+                    if (unrevealedNb.length > 0) {
+                        const rhs = val - flagsAround;
+                        unrevealedNb.sort();
+                        const sig = unrevealedNb.join('|') + '=' + rhs;
+                        for (const v of unrevealedNb) frontierSet.add(v);
+                        if (!seenEqKeys.has(sig)) {
+                            seenEqKeys.add(sig);
+                            equations.push({
+                                source: [r, c],
+                                vars: new Set(unrevealedNb),
+                                rhs: rhs
+                            });
+                        }
+                    }
+                }
+
+                const safeCells = new Set();
+                const mineCells = new Set();
+                const sourceCells = new Set();
+
+                // ==============================================================
+                // TIER 1A: SINGLE-POINT RULE (b_u == 0 or b_u == |N_X(u)|)
+                // ==============================================================
+                for (const eq of equations) {
+                    if (eq.rhs === 0) {
+                        for (const v of eq.vars) safeCells.add(v);
+                        sourceCells.add(keyOf(eq.source[0], eq.source[1]));
+                    } else if (eq.rhs === eq.vars.size) {
+                        for (const v of eq.vars) mineCells.add(v);
+                        sourceCells.add(keyOf(eq.source[0], eq.source[1]));
+                    }
+                }
+
+                if (safeCells.size > 0 || mineCells.size > 0) {
+                    const sampleSrc = Array.from(sourceCells).slice(0, 2).map(k => {
+                        const [r, c] = parseKey(k);
+                        return coordLabel(r, c);
+                    }).join(', ');
+                    return {
+                        tier: 1,
+                        method: 'Quy tắc Đơn Điểm 5×5 (Single-Point Constraint)',
+                        safe: safeCells,
+                        mines: mineCells,
+                        sources: sourceCells,
+                        explanation: `Từ tâm Radar ${sampleSrc}: số mìn còn thiếu khớp tuyệt đối với cận biên (b_u = 0 hoặc b_u = |N_X|), suy ra ${safeCells.size} ô an toàn và ${mineCells.size} ô mìn.`
+                    };
+                }
+
+                // ==============================================================
+                // TIER 1B: SUBSET & OVERLAP BOUND DIFFERENCE (Hiệu Tập Hợp Giao Thoa 5x5)
+                // For any two equations E1 and E2:
+                // Let D21 = E2.vars \ E1.vars, and D12 = E1.vars \ E2.vars.
+                // Notice: sum(D21) - sum(D12) = E2.rhs - E1.rhs.
+                // Upper bound of LHS is |D21| (when all D21 = 1 and all D12 = 0).
+                // Thus if E2.rhs - E1.rhs == |D21|, then ALL vars in D21 = 1 (Mine) and ALL vars in D12 = 0 (Safe)!
+                // ==============================================================
+                for (let i = 0; i < equations.length; i++) {
+                    const e1 = equations[i];
+                    for (let j = 0; j < equations.length; j++) {
+                        if (i === j) continue;
+                        const e2 = equations[j];
+
+                        // Quick bounding filter
+                        const d21 = [];
+                        let intersectCount = 0;
+                        for (const v of e2.vars) {
+                            if (e1.vars.has(v)) intersectCount++;
+                            else d21.push(v);
+                        }
+                        if (intersectCount === 0) continue;
+
+                        const d12 = [];
+                        for (const v of e1.vars) {
+                            if (!e2.vars.has(v)) d12.push(v);
+                        }
+
+                        const diffRhs = e2.rhs - e1.rhs;
+                        if (diffRhs === d21.length && (d21.length > 0 || d12.length > 0)) {
+                            for (const v of d21) mineCells.add(v);
+                            for (const v of d12) safeCells.add(v);
+                            sourceCells.add(keyOf(e1.source[0], e1.source[1]));
+                            sourceCells.add(keyOf(e2.source[0], e2.source[1]));
+
+                            return {
+                                tier: 1,
+                                method: 'Hiệu Hai Cửa Sổ Giao Thoa 5×5 (Overlap Bound Elimination)',
+                                safe: safeCells,
+                                mines: mineCells,
+                                sources: sourceCells,
+                                explanation: `Khử giao thoa giữa cửa sổ 5×5 tại ${coordLabel(...e2.source)} (b=${e2.rhs}) và ${coordLabel(...e1.source)} (b=${e1.rhs}): Hiệu phương trình đạt cực biên Δb = ${diffRhs} = |N_2 \\ N_1|, cô lập được ${safeCells.size} ô an toàn và ${mineCells.size} ô mìn ở rìa ngoài.`
+                            };
+                        }
+                    }
+                }
+
+                // ==============================================================
+                // TIER 2: GAUSS-JORDAN RREF + BINARY BOUND TEST (U_r & L_r)
+                // ==============================================================
+                if (equations.length > 0 && frontierSet.size > 0) {
+                    const rrefResult = RadarCSPSolver.solveRREFBounds(equations, Array.from(frontierSet));
+                    if (rrefResult.safe.size > 0 || rrefResult.mines.size > 0) {
+                        return {
+                            tier: 2,
+                            method: 'Khử Gauss-Jordan RREF & Cận Biên Nhị Phân (U_r / L_r)',
+                            safe: rrefResult.safe,
+                            mines: rrefResult.mines,
+                            sources: rrefResult.sources,
+                            explanation: rrefResult.explanation
+                        };
+                    }
+                }
+
+                // ==============================================================
+                // TIER 3: CONNECTED COMPONENT KERNEL BACKTRACKING + GLOBAL MINE COUNT
+                // ==============================================================
+                const totalCells = rows * cols;
+                const minesRem = numMines - flaggedSet.size;
+                const allUnrevealed = [];
+                for (let r = 0; r < rows; r++) {
+                    for (let c = 0; c < cols; c++) {
+                        const k = keyOf(r, c);
+                        if (!revealedSet.has(k) && !flaggedSet.has(k)) {
+                            allUnrevealed.push(k);
+                        }
+                    }
+                }
+
+                if (minesRem === 0 && allUnrevealed.length > 0) {
+                    return {
+                        tier: 3,
+                        method: 'Bảo Toàn Tổng Số Mìn Toàn Cục (M_rem = 0)',
+                        safe: new Set(allUnrevealed),
+                        mines: new Set(),
+                        sources: new Set(),
+                        explanation: `Đã cắm đủ toàn bộ ${numMines} quả mìn trên bảng (M_rem = 0). Toàn bộ ${allUnrevealed.length} ô ẩn còn lại chắc chắn 100% an toàn!`
+                    };
+                }
+                if (minesRem === allUnrevealed.length && allUnrevealed.length > 0) {
+                    return {
+                        tier: 3,
+                        method: 'Bảo Toàn Tổng Số Mìn Toàn Cục (M_rem = |U|)',
+                        safe: new Set(),
+                        mines: new Set(allUnrevealed),
+                        sources: new Set(),
+                        explanation: `Số mìn còn thiếu (${minesRem}) bằng đúng tổng số ô chưa mở còn lại. Tất cả ${allUnrevealed.length} ô đều là mìn!`
+                    };
+                }
+
+                if (equations.length > 0 && frontierSet.size > 0) {
+                    const tier3Res = RadarCSPSolver.solveConnectedComponents(
+                        equations, frontierSet, allUnrevealed, minesRem
+                    );
+                    if (tier3Res.safe.size > 0 || tier3Res.mines.size > 0) {
+                        return tier3Res;
+                    }
+                }
+
+                return null; // Non-deterministic stall (requires guessing)
+            }
+
+            /**
+             * Tier 2 Helper: Gaussian Elimination to Reduced Row Echelon Form (RREF)
+             * with binary upper/lower bound verification on every row.
+             */
+            static solveRREFBounds(equations, variables) {
+                const m = equations.length;
+                const n = variables.length;
+                const varIdx = new Map();
+                variables.forEach((v, idx) => varIdx.set(v, idx));
+
+                // Build augmented matrix [A | b]
+                const mat = Array.from({ length: m }, () => new Float64Array(n + 1));
+                for (let i = 0; i < m; i++) {
+                    for (const v of equations[i].vars) {
+                        mat[i][varIdx.get(v)] = 1.0;
+                    }
+                    mat[i][n] = equations[i].rhs;
+                }
+
+                const EPS = 1e-9;
+                let pivotRow = 0;
+                for (let col = 0; col < n && pivotRow < m; col++) {
+                    // Find row with largest absolute value in column `col` for numerical stability
+                    let sel = -1;
+                    let maxVal = EPS;
+                    for (let r = pivotRow; r < m; r++) {
+                        const a = Math.abs(mat[r][col]);
+                        if (a > maxVal) {
+                            maxVal = a;
+                            sel = r;
+                        }
+                    }
+                    if (sel === -1) continue;
+
+                    // Swap rows
+                    const tmp = mat[pivotRow];
+                    mat[pivotRow] = mat[sel];
+                    mat[sel] = tmp;
+
+                    // Normalize pivot row
+                    const piv = mat[pivotRow][col];
+                    for (let c = col; c <= n; c++) mat[pivotRow][c] /= piv;
+
+                    // Eliminate column in all other rows
+                    for (let r = 0; r < m; r++) {
+                        if (r !== pivotRow && Math.abs(mat[r][col]) > EPS) {
+                            const factor = mat[r][col];
+                            for (let c = col; c <= n; c++) {
+                                mat[r][c] -= factor * mat[pivotRow][c];
+                            }
+                        }
+                    }
+                    pivotRow++;
+                }
+
+                const safe = new Set();
+                const mines = new Set();
+                let triggerRowDesc = '';
+
+                for (let r = 0; r < m; r++) {
+                    let maxPos = 0.0;
+                    let minNeg = 0.0;
+                    const posIndices = [];
+                    const negIndices = [];
+
+                    for (let c = 0; c < n; c++) {
+                        const coeff = mat[r][c];
+                        if (coeff > EPS) {
+                            maxPos += coeff;
+                            posIndices.push(c);
+                        } else if (coeff < -EPS) {
+                            minNeg += coeff;
+                            negIndices.push(c);
+                        }
+                    }
+
+                    if (posIndices.length === 0 && negIndices.length === 0) continue;
+                    const rhs = mat[r][n];
+
+                    if (Math.abs(rhs - maxPos) <= 1e-7) {
+                        for (const c of posIndices) mines.add(variables[c]);
+                        for (const c of negIndices) safe.add(variables[c]);
+                        if (!triggerRowDesc) {
+                            triggerRowDesc = `Hàng RREF #${r + 1} đạt cận trên U_r = ${rhs.toFixed(1)} (${posIndices.length} biến dương = 1, ${negIndices.length} biến âm = 0)`;
+                        }
+                    } else if (Math.abs(rhs - minNeg) <= 1e-7) {
+                        for (const c of posIndices) safe.add(variables[c]);
+                        for (const c of negIndices) mines.add(variables[c]);
+                        if (!triggerRowDesc) {
+                            triggerRowDesc = `Hàng RREF #${r + 1} đạt cận dưới L_r = ${rhs.toFixed(1)} (${posIndices.length} biến dương = 0, ${negIndices.length} biến âm = 1)`;
+                        }
+                    }
+                }
+
+                return {
+                    safe,
+                    mines,
+                    sources: new Set(),
+                    explanation: `Khử ma trận bậc thang rút gọn RREF (${m} phương trình × ${n} biến biên): ${triggerRowDesc}, suy ra ${safe.size} ô an toàn và ${mines.size} ô mìn.`
+                };
+            }
+
+            /**
+             * Tier 3 Helper: Decompose frontier into connected components,
+             * perform pruned backtracking on each component, and check global mine sum.
+             */
+            static solveConnectedComponents(equations, frontierSet, allUnrevealed, minesRem) {
+                const varToEqs = new Map();
+                for (const v of frontierSet) varToEqs.set(v, []);
+                equations.forEach((eq, idx) => {
+                    for (const v of eq.vars) {
+                        varToEqs.get(v).push(idx);
+                    }
+                });
+
+                const visited = new Set();
+                const components = [];
+
+                for (const startVar of frontierSet) {
+                    if (visited.has(startVar)) continue;
+                    const compVars = [];
+                    const compEqSet = new Set();
+                    const q = [startVar];
+                    visited.add(startVar);
+
+                    while (q.length > 0) {
+                        const curr = q.shift();
+                        compVars.push(curr);
+                        for (const eqIdx of varToEqs.get(curr)) {
+                            compEqSet.add(eqIdx);
+                            for (const nbVar of equations[eqIdx].vars) {
+                                if (!visited.has(nbVar)) {
+                                    visited.add(nbVar);
+                                    q.push(nbVar);
+                                }
+                            }
+                        }
+                    }
+                    components.push({
+                        vars: compVars,
+                        eqs: Array.from(compEqSet).map(i => equations[i])
+                    });
+                }
+
+                const safe = new Set();
+                const mines = new Set();
+                const compSolutions = [];
+
+                for (const comp of components) {
+                    // Cap backtracking variable size per component for real-time responsiveness
+                    if (comp.vars.length > 26) continue;
+
+                    // Sort variables by constraint degree descending for fast pruning
+                    comp.vars.sort((a, b) => varToEqs.get(b).length - varToEqs.get(a).length);
+                    const k = comp.vars.length;
+                    const localIdx = new Map();
+                    comp.vars.forEach((v, i) => localIdx.set(v, i));
+
+                    const localEqs = comp.eqs.map(eq => {
+                        const idxs = Array.from(eq.vars).map(v => localIdx.get(v));
+                        return { idxs, rhs: eq.rhs };
+                    });
+
+                    // Map each variable step to the equations it participates in for progressive feasibility check
+                    const varEqList = Array.from({ length: k }, () => []);
+                    localEqs.forEach((leq, eqId) => {
+                        for (const idx of leq.idxs) varEqList[idx].push(eqId);
+                    });
+
+                    const eqAssignedCount = new Int32Array(localEqs.length);
+                    const eqCurrentSum = new Int32Array(localEqs.length);
+                    const eqTotalLen = localEqs.map(e => e.idxs.length);
+                    const assignment = new Int8Array(k);
+                    const validSols = [];
+                    const MAX_SOLS = 1500;
+
+                    function backtrack(pos, minesUsed) {
+                        if (validSols.length >= MAX_SOLS) return;
+                        if (minesUsed > minesRem) return;
+                        if (pos === k) {
+                            validSols.push( new Int8Array(assignment) );
+                            return;
+                        }
+
+                        for (let val = 0; val <= 1; val++) {
+                            assignment[pos] = val;
+                            let ok = true;
+                            const touched = varEqList[pos];
+
+                            for (let t = 0; t < touched.length; t++) {
+                                const eId = touched[t];
+                                eqAssignedCount[eId]++;
+                                eqCurrentSum[eId] += val;
+
+                                const remVars = eqTotalLen[eId] - eqAssignedCount[eId];
+                                const sumNow = eqCurrentSum[eId];
+                                const target = localEqs[eId].rhs;
+
+                                if (sumNow > target || sumNow + remVars < target) {
+                                    ok = false;
+                                }
+                            }
+
+                            if (ok) {
+                                backtrack(pos + 1, minesUsed + val);
+                            }
+
+                            // Restore state
+                            for (let t = 0; t < touched.length; t++) {
+                                const eId = touched[t];
+                                eqAssignedCount[eId]--;
+                                eqCurrentSum[eId] -= val;
+                            }
+                        }
+                    }
+
+                    backtrack(0, 0);
+
+                    if (validSols.length > 0 && validSols.length < MAX_SOLS) {
+                        compSolutions.push({ vars: comp.vars, sols: validSols });
+                        const numSols = validSols.length;
+                        for (let i = 0; i < k; i++) {
+                            let ones = 0;
+                            for (let s = 0; s < numSols; s++) ones += validSols[s][i];
+                            if (ones === 0) safe.add(comp.vars[i]);
+                            else if (ones === numSols) mines.add(comp.vars[i]);
+                        }
+                    }
+                }
+
+                if (safe.size > 0 || mines.size > 0) {
+                    return {
+                        tier: 3,
+                        method: 'Duyệt Không Gian Nghiệm Hạt Nhân (Connected Component CSP)',
+                        safe,
+                        mines,
+                        sources: new Set(),
+                        explanation: `Phân rã thành phần liên thông và duyệt nghiệm tổ hợp có cắt tỉa: tìm thấy ${safe.size} biến luôn bằng 0 (An toàn) và ${mines.size} biến luôn bằng 1 (Mìn) trên mọi nghiệm hợp lệ.`
+                    };
+                }
+
+                // Check Global Mine Count across components and interior cells
+                if (compSolutions.length === components.length && compSolutions.length > 0) {
+                    let minFrontierMines = 0;
+                    let maxFrontierMines = 0;
+                    for (const cs of compSolutions) {
+                        let cMin = Infinity, cMax = -Infinity;
+                        for (const sol of cs.sols) {
+                            let s = 0;
+                            for (let i = 0; i < sol.length; i++) s += sol[i];
+                            if (s < cMin) cMin = s;
+                            if (s > cMax) cMax = s;
+                        }
+                        minFrontierMines += cMin;
+                        maxFrontierMines += cMax;
+                    }
+
+                    const interiorCells = allUnrevealed.filter(k => !frontierSet.has(k));
+                    if (minesRem === minFrontierMines) {
+                        for (const ic of interiorCells) safe.add(ic);
+                        // Also lock components to their minimum mine solutions
+                        for (const cs of compSolutions) {
+                            let cMin = Infinity;
+                            for (const sol of cs.sols) {
+                                let s = 0;
+                                for (let i = 0; i < sol.length; i++) s += sol[i];
+                                if (s < cMin) cMin = s;
+                            }
+                            const minSols = cs.sols.filter(sol => {
+                                let s = 0;
+                                for (let i = 0; i < sol.length; i++) s += sol[i];
+                                return s === cMin;
+                            });
+                            for (let i = 0; i < cs.vars.length; i++) {
+                                let ones = 0;
+                                for (const sol of minSols) ones += sol[i];
+                                if (ones === 0) safe.add(cs.vars[i]);
+                                else if (ones === minSols.length) mines.add(cs.vars[i]);
+                            }
+                        }
+                    } else if (minesRem === maxFrontierMines + interiorCells.length && interiorCells.length > 0) {
+                        for (const ic of interiorCells) mines.add(ic);
+                    }
+
+                    if (safe.size > 0 || mines.size > 0) {
+                        return {
+                            tier: 3,
+                            method: 'Ràng Buộc Tổng Số Mìn Toàn Cục + Cực Trị Biên',
+                            safe,
+                            mines,
+                            sources: new Set(),
+                            explanation: `Kết hợp phương trình tổng mìn còn lại (M_rem = ${minesRem}) với cận biên trên các thành phần liên thông, suy ra ${safe.size} ô an toàn và ${mines.size} ô mìn.`
+                        };
+                    }
+                }
+
+                return { safe: new Set(), mines: new Set(), sources: new Set(), explanation: '' };
+            }
+
+            /**
+             * Full simulated run from firstClick (r0, c0) to verify if a board is 100% deterministic (No-Guess)
+             */
+            static verifyBoardSolvable(rows, cols, numMines, board, r0, c0) {
+                const totalSafe = rows * cols - numMines;
+                const rev = new Set();
+                const flg = new Set();
+                floodRevealOnSet(r0, c0, rows, cols, board, rev, flg);
+
+                let steps = 0;
+                while (rev.size < totalSafe && steps < 300) {
+                    const res = RadarCSPSolver.findNextStep(rows, cols, numMines, board, rev, flg);
+                    if (!res || (res.safe.size === 0 && res.mines.size === 0)) {
+                        return { solvable: false, steps };
+                    }
+                    for (const m of res.mines) flg.add(m);
+                    for (const s of res.safe) {
+                        const [sr, sc] = parseKey(s);
+                        floodRevealOnSet(sr, sc, rows, cols, board, rev, flg);
+                    }
+                    steps++;
+                }
+                return { solvable: rev.size === totalSafe, steps };
+            }
+        }
+
+        /***********************************************************************
+         * BOARD GENERATION (WITH 5x5 ZERO FIRST CLICK & NO-GUESS GENERATOR)
+         ***********************************************************************/
+        function generateMinesForFirstClick(r0, c0) {
+            const { rows, cols, numMines, noGuessMode } = state;
+
+            // Protected zone: (r0, c0) and all 24 neighbors in its 5x5 radar so first click is ALWAYS a 0!
+            const forbidden = new Set([keyOf(r0, c0)]);
+            for (const [nr, nc] of getNeighbors24(r0, c0, rows, cols)) {
+                forbidden.add(keyOf(nr, nc));
+            }
+
+            const candidatePool = [];
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const k = keyOf(r, c);
+                    if (!forbidden.has(k)) candidatePool.push(k);
+                }
+            }
+
+            const actualMines = Math.min(numMines, candidatePool.length - 1);
+            state.numMines = actualMines;
+
+            const maxAttempts = noGuessMode ? 45 : 1;
+            let bestMines = null;
+            let bestBoard = null;
+            let verified = false;
+            let attemptsUsed = 0;
+            let proofSteps = 0;
+
+            const startTime = performance.now();
+
+            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                attemptsUsed = attempt;
+                // Fisher-Yates partial shuffle to sample `actualMines`
+                for (let i = 0; i < actualMines; i++) {
+                    const randIdx = i + Math.floor(Math.random() * (candidatePool.length - i));
+                    const tmp = candidatePool[i];
+                    candidatePool[i] = candidatePool[randIdx];
+                    candidatePool[randIdx] = tmp;
+                }
+
+                const mineSet = new Set(candidatePool.slice(0, actualMines));
+                const board = computeBoardNumbers(rows, cols, mineSet);
+
+                bestMines = mineSet;
+                bestBoard = board;
+
+                if (!noGuessMode) break;
+
+                const check = RadarCSPSolver.verifyBoardSolvable(rows, cols, actualMines, board, r0, c0);
+                if (check.solvable) {
+                    verified = true;
+                    proofSteps = check.steps;
+                    break;
+                }
+
+                // Keep generation under ~380ms so the first click feels instant
+                if (performance.now() - startTime > 380) break;
+            }
+
+            state.mines = bestMines;
+            state.board = bestBoard;
+
+            // Update CSP Verification Badge
+            const badge = document.getElementById('csp-badge');
+            if (noGuessMode && verified) {
+                badge.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-mono font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/40';
+                badge.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-400"></i> <span>Đã kiểm định: Giải được 100% bằng Logic CSP (${proofSteps} vòng suy luận, thử ${attemptsUsed} mẫu)</span>`;
+                appendCSPLog('HỆ THỐNG', `Đã sinh bảng Tất Định 100% (No-Guess) sau ${attemptsUsed} mẫu thử. Chuỗi chứng minh CSP cần ${proofSteps} bước suy luận.`, 'emerald');
+            } else if (noGuessMode && !verified) {
+                badge.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-mono font-medium bg-amber-500/15 text-amber-300 border border-amber-500/40';
+                badge.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-amber-400"></i> <span>Mật độ mìn cao (${attemptsUsed} mẫu): Có thể cần suy luận sâu</span>`;
+            } else {
+                badge.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-mono font-medium bg-slate-800 text-slate-300 border border-slate-700';
+                badge.innerHTML = `<i class="fa-solid fa-dice text-cyan-400"></i> <span>Chế độ Ngẫu Nhiên Chuẩn (Tắt kiểm định No-Guess)</span>`;
+            }
+        }
+
+        /***********************************************************************
+         * UI RENDERING & INTERACTION HANDLERS
+         ***********************************************************************/
+        function initEmptyBoard() {
+            stopAutoSolve();
+            if (state.timerInterval) clearInterval(state.timerInterval);
+
+            state.started = false;
+            state.gameOver = false;
+            state.won = false;
+            state.mines = new Set();
+            state.board = Array.from({ length: state.rows }, () => Array(state.cols).fill(0));
+            state.revealed = new Set();
+            state.flagged = new Set();
+            state.hoveredCell = null;
+            clearHints();
+            state.timerSeconds = 0;
+
+            updateHUD();
+            renderBoardDOM();
+            initMiniRadarGrid();
+            updateInspector(null);
+
+            const badge = document.getElementById('csp-badge');
+            badge.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-mono font-medium bg-slate-800 text-slate-300 border border-slate-700';
+            badge.innerHTML = `<i class="fa-solid fa-circle-info text-cyan-400"></i> <span>Chờ nước đi đầu tiên (Vùng 5×5 đầu tiên luôn = 0 mìn)</span>`;
+
+            document.getElementById('status-icon').className = 'fa-solid fa-rotate';
+            document.getElementById('status-text').textContent = 'Ván Mới';
+        }
+
+        function renderBoardDOM() {
+            const container = document.getElementById('board-container');
+            container.innerHTML = '';
+            container.style.gridTemplateColumns = `repeat(${state.cols}, ${state.cellSize}px)`;
+
+            const fontSize = Math.max(11, Math.floor(state.cellSize * 0.42));
+
+            for (let r = 0; r < state.rows; r++) {
+                for (let c = 0; c < state.cols; c++) {
+                    const cell = document.createElement('div');
+                    cell.id = `cell-${r}-${c}`;
+                    cell.className = 'mine-cell cell-unrevealed';
+                    cell.style.width = `${state.cellSize}px`;
+                    cell.style.height = `${state.cellSize}px`;
+                    cell.style.fontSize = `${fontSize}px`;
+
+                    cell.addEventListener('mouseenter', () => onCellHover(r, c));
+                    cell.addEventListener('mouseleave', () => onCellLeave());
+                    cell.addEventListener('mousedown', (e) => onCellMouseDown(e, r, c));
+
+                    container.appendChild(cell);
+                }
+            }
+        }
+
+        function updateAllCellsVisual() {
+            const { rows, cols, board, revealed, flagged, mines, gameOver, won, hoveredCell, hintSafe, hintMines, hintSources } = state;
+
+            let rMin = -99, rMax = -99, cMin = -99, cMax = -99;
+            if (hoveredCell) {
+                rMin = Math.max(0, hoveredCell[0] - 2);
+                rMax = Math.min(rows - 1, hoveredCell[0] + 2);
+                cMin = Math.max(0, hoveredCell[1] - 2);
+                cMax = Math.min(cols - 1, hoveredCell[1] + 2);
+            }
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const el = document.getElementById(`cell-${r}-${c}`);
+                    if (!el) continue;
+                    const k = keyOf(r, c);
+                    const isRev = revealed.has(k);
+                    const isFlg = flagged.has(k);
+                    const isMine = mines.has(k);
+
+                    let cls = 'mine-cell ';
+                    let html = '';
+
+                    if (isRev) {
+                        const val = board[r][c];
+                        if (val === -1) {
+                            cls += 'bg-rose-600/90 border border-rose-400 text-white';
+                            html = '<i class="fa-solid fa-burst text-white animate-bounce"></i>';
+                        } else if (val === 0) {
+                            cls += 'cell-zero';
+                        } else {
+                            cls += 'cell-revealed ';
+                            cls += val <= 16 ? `num-${val}` : 'num-high';
+                            html = val;
+                        }
+                    } else {
+                        cls += 'cell-unrevealed';
+                        if (isFlg) {
+                            if (gameOver && !won && !isMine) {
+                                cls += ' bg-rose-950/80 border-rose-500';
+                                html = '<i class="fa-solid fa-xmark text-rose-400"></i>';
+                            } else {
+                                html = '<i class="fa-solid fa-flag text-rose-500 drop-shadow"></i>';
+                            }
+                        } else if (gameOver && !won && isMine) {
+                            cls += ' bg-rose-950/50 border-rose-500/50';
+                            html = '<i class="fa-solid fa-land-mine-on text-rose-400/90"></i>';
+                        }
+                    }
+
+                    // 5x5 Radar Hover Overlay
+                    if (hoveredCell) {
+                        const [hr, hc] = hoveredCell;
+                        const inRadar = r >= rMin && r <= rMax && c >= cMin && c <= cMax;
+                        if (r === hr && c === hc) {
+                            cls += ' radar-center-cell';
+                        } else if (inRadar) {
+                            cls += isRev ? ' radar-in-range-revealed' : ' radar-in-range-unrevealed';
+                        }
+                        if (inRadar) {
+                            if (r === rMin) cls += ' radar-edge-top';
+                            if (r === rMax) cls += ' radar-edge-bottom';
+                            if (c === cMin) cls += ' radar-edge-left';
+                            if (c === cMax) cls += ' radar-edge-right';
+                        }
+                    }
+
+                    // CSP Hint Highlights
+                    if (hintSafe.has(k) && !isRev) cls += ' csp-hint-safe';
+                    if (hintMines.has(k) && !isRev && !isFlg) cls += ' csp-hint-mine';
+                    if (hintSources.has(k)) cls += ' csp-pivot-source';
+
+                    el.className = cls;
+                    el.innerHTML = html;
+                }
+            }
+        }
+
+        function onCellHover(r, c) {
+            state.hoveredCell = [r, c];
+            updateAllCellsVisual();
+            updateInspector([r, c]);
+        }
+
+        function onCellLeave() {
+            state.hoveredCell = null;
+            updateAllCellsVisual();
+            updateInspector(null);
+        }
+
+        function onCellMouseDown(e, r, c) {
+            e.preventDefault();
+            if (state.gameOver) return;
+
+            clearHints();
+
+            // Right click always toggles flag
+            if (e.button === 2) {
+                toggleFlag(r, c);
+                return;
+            }
+
+            // Left click
+            if (e.button === 0) {
+                const k = keyOf(r, c);
+                // If clicking on an already revealed positive number -> try 5x5 Chord Click!
+                if (state.revealed.has(k)) {
+                    attemptChordClick(r, c);
+                    return;
+                }
+
+                if (state.inputMode === 'flag') {
+                    toggleFlag(r, c);
+                } else {
+                    handleCellReveal(r, c);
+                }
+            }
+        }
+
+        function toggleFlag(r, c) {
+            if (!state.started || state.gameOver) return;
+            const k = keyOf(r, c);
+            if (state.revealed.has(k)) return;
+
+            if (state.flagged.has(k)) {
+                state.flagged.delete(k);
+                sound.flag(false);
+            } else {
+                state.flagged.add(k);
+                sound.flag(true);
+            }
+
+            updateHUD();
+            updateAllCellsVisual();
+            if (state.hoveredCell) updateInspector(state.hoveredCell);
+        }
+
+        function handleCellReveal(r, c) {
+            const k = keyOf(r, c);
+            if (state.revealed.has(k) || state.flagged.has(k) || state.gameOver) return;
+
+            // First click: generate mines with 5x5 safe zone around (r, c)
+            if (!state.started) {
+                state.started = true;
+                generateMinesForFirstClick(r, c);
+                startTimer();
+            }
+
+            if (state.mines.has(k)) {
+                // Hit a mine!
+                state.revealed.add(k);
+                state.gameOver = true;
+                state.won = false;
+                stopAutoSolve();
+                clearInterval(state.timerInterval);
+                sound.boom();
+                document.getElementById('status-icon').className = 'fa-solid fa-skull-crossbones text-rose-300';
+                document.getElementById('status-text').textContent = 'Trúng Mìn! Chơi Lại';
+                appendCSPLog('CẢNH BÁO', `Trúng mìn tại ô ${coordLabel(r, c)}! Hãy bấm "Ván Mới" để thử lại.`, 'rose');
+                updateAllCellsVisual();
+                return;
+            }
+
+            const openedCount = floodRevealOnSet(r, c, state.rows, state.cols, state.board, state.revealed, state.flagged);
+            if (openedCount > 1) sound.flood();
+            else sound.click();
+
+            checkWinCondition();
+            updateHUD();
+            updateAllCellsVisual();
+            if (state.hoveredCell) updateInspector(state.hoveredCell);
+        }
+
+        /**
+         * 5x5 Chord Clicking:
+         * If an already-revealed cell has its 5x5 flag count equal to its value,
+         * immediately reveal all remaining unflagged cells in its 5x5 radar!
+         */
+        function attemptChordClick(r, c) {
+            const val = state.board[r][c];
+            if (val <= 0) return;
+
+            const neighbors = getNeighbors24(r, c);
+            let flags = 0;
+            const toOpen = [];
+
+            for (const [nr, nc] of neighbors) {
+                const nk = keyOf(nr, nc);
+                if (state.flagged.has(nk)) {
+                    flags++;
+                } else if (!state.revealed.has(nk)) {
+                    toOpen.push([nr, nc]);
+                }
+            }
+
+            if (flags === val && toOpen.length > 0) {
+                for (const [nr, nc] of toOpen) {
+                    handleCellReveal(nr, nc);
+                    if (state.gameOver) break;
+                }
+            }
+        }
+
+        function checkWinCondition() {
+            const totalSafe = state.rows * state.cols - state.numMines;
+            if (state.revealed.size >= totalSafe && !state.gameOver) {
+                state.gameOver = true;
+                state.won = true;
+                stopAutoSolve();
+                clearInterval(state.timerInterval);
+
+                // Flag all remaining mines automatically
+                for (const mKey of state.mines) {
+                    state.flagged.add(mKey);
+                }
+
+                sound.win();
+                document.getElementById('status-icon').className = 'fa-solid fa-trophy text-amber-300';
+                document.getElementById('status-text').textContent = 'Chiến Thắng! Chơi Tiếp';
+                appendCSPLog('CHIẾN THẮNG', `Hoàn thành xuất sắc toàn bộ bảng Radar 5×5 (${state.rows}×${state.cols}) trong ${formatTime(state.timerSeconds)}!`, 'emerald');
+            }
+        }
+
+        /***********************************************************************
+         * STAGE 2: MINI 5x5 RADAR INSPECTOR PANEL
+         ***********************************************************************/
+        function initMiniRadarGrid() {
+            const grid = document.getElementById('mini-radar-grid');
+            grid.innerHTML = '';
+            for (let i = 0; i < 25; i++) {
+                const d = document.createElement('div');
+                d.id = `mini-cell-${i}`;
+                d.className = 'w-6 h-6 rounded text-[10px] font-mono font-bold flex items-center justify-center bg-slate-900 border border-slate-800 text-slate-500';
+                grid.appendChild(d);
+            }
+        }
+
+        function updateInspector(cellCoord) {
+            const coordsEl = document.getElementById('inspector-coords');
+            const totalNbEl = document.getElementById('insp-total-nb');
+            const valEl = document.getElementById('insp-val');
+            const flagsEl = document.getElementById('insp-flags');
+            const unrevEl = document.getElementById('insp-unrev');
+            const remEl = document.getElementById('insp-rem');
+            const eqEl = document.getElementById('insp-equation');
+            const tagEl = document.getElementById('insp-status-tag');
+
+            if (!cellCoord) {
+                coordsEl.textContent = 'Tâm: [-- , --]';
+                totalNbEl.textContent = '24 ô';
+                valEl.textContent = '--';
+                flagsEl.textContent = '0';
+                unrevEl.textContent = '0';
+                remEl.textContent = '--';
+                eqEl.textContent = '∑ x_i (trong vùng 5×5) = b_u';
+                tagEl.textContent = 'Rê chuột lên bảng';
+                tagEl.className = 'text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-300';
+
+                for (let i = 0; i < 25; i++) {
+                    const mc = document.getElementById(`mini-cell-${i}`);
+                    if (mc) {
+                        mc.className = 'w-6 h-6 rounded text-[10px] font-mono font-bold flex items-center justify-center bg-slate-900 border border-slate-800 text-slate-600';
+                        mc.textContent = i === 12 ? '✦' : '·';
+                    }
+                }
+                return;
+            }
+
+            const [r, c] = cellCoord;
+            coordsEl.textContent = `Tâm: (${r + 1}, ${c + 1})`;
+
+            let validNeighbors = 0;
+            let flagsCount = 0;
+            let unrevCount = 0;
+
+            let idx = 0;
+            for (let dr = -2; dr <= 2; dr++) {
+                for (let dc = -2; dc <= 2; dc++) {
+                    const nr = r + dr;
+                    const nc = c + dc;
+                    const mc = document.getElementById(`mini-cell-${idx}`);
+                    idx++;
+
+                    if ( nr < 0 || nr >= state.rows || nc < 0 || nc >= state.cols ) {
+                        mc.className = 'w-6 h-6 rounded text-[10px] font-mono flex items-center justify-center bg-slate-950 border border-slate-900 text-slate-700';
+                        mc.textContent = '×';
+                        continue;
+                    }
+
+                    const nk = keyOf(nr, nc);
+                    const isCenter = (dr === 0 && dc === 0);
+                    if (!isCenter) validNeighbors++;
+
+                    if (state.revealed.has(nk)) {
+                        const v = state.board[nr][nc];
+                        mc.className = `w-6 h-6 rounded text-[10px] font-mono font-bold flex items-center justify-center bg-slate-900 border ${isCenter ? 'border-cyan-400 text-cyan-300' : 'border-slate-800 text-slate-300'}`;
+                        mc.textContent = v === 0 ? '0' : v;
+                    } else if (state.flagged.has(nk)) {
+                        if (!isCenter) flagsCount++;
+                        mc.className = `w-6 h-6 rounded text-[10px] flex items-center justify-center bg-rose-950/60 border ${isCenter ? 'border-cyan-400' : 'border-rose-500/50'} text-rose-400`;
+                        mc.innerHTML = '<i class="fa-solid fa-flag text-[9px]"></i>';
+                    } else {
+                        if (!isCenter) unrevCount++;
+                        mc.className = `w-6 h-6 rounded text-[10px] font-mono flex items-center justify-center bg-cyan-950/40 border ${isCenter ? 'border-cyan-400 text-cyan-200' : 'border-cyan-500/40 text-cyan-400'}`;
+                        mc.textContent = '?';
+                    }
+                }
+            }
+
+            totalNbEl.textContent = `${validNeighbors} ô`;
+            flagsEl.textContent = `${flagsCount}`;
+            unrevEl.textContent = `${unrevCount}`;
+
+            const centerKey = keyOf(r, c);
+            if (state.revealed.has(centerKey) && state.board[r][c] >= 0) {
+                const v = state.board[r][c];
+                const rem = v - flagsCount;
+                valEl.textContent = `${v}`;
+                remEl.textContent = `${rem}`;
+
+                if (unrevCount === 0) {
+                    tagEl.textContent = 'Đã giải xong vùng 5×5';
+                    tagEl.className = 'text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300';
+                    eqEl.textContent = `Tất cả ${validNeighbors} ô lân cận trong vùng 5×5 đã xác định.`;
+                } else if (rem === 0) {
+                    tagEl.textContent = 'Đủ cờ! Nhấp để mở nhanh';
+                    tagEl.className = 'text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 animate-pulse';
+                    eqEl.textContent = `∑ (${unrevCount} biến ẩn) = 0  ⇒  Mọi ô ẩn đều AN TOÀN (0)!`;
+                } else if (rem === unrevCount) {
+                    tagEl.textContent = 'Cận trên! Toàn bộ là Mìn';
+                    tagEl.className = 'text-[10px] px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-300 animate-pulse';
+                    eqEl.textContent = `∑ (${unrevCount} biến ẩn) = ${rem}  ⇒  Mọi ô ẩn đều là MÌN (1)!`;
+                } else {
+                    tagEl.textContent = 'Đang ràng buộc';
+                    tagEl.className = 'text-[10px] px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300';
+                    eqEl.textContent = `∑ (${unrevCount} biến ẩn quanh ${coordLabel(r, c)}) = ${v} - ${flagsCount} = ${rem}`;
+                }
+            } else {
+                valEl.textContent = 'Chưa mở';
+                remEl.textContent = '--';
+                tagEl.textContent = 'Ô chưa mở';
+                tagEl.className = 'text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400';
+                eqEl.textContent = `Ô ${coordLabel(r, c)} có ${validNeighbors} ô lân cận trong tầm quét 5×5.`;
+            }
+        }
+
+        /***********************************************************************
+         * STAGE 4: CSP HINT, STEP SOLVER & AUTO-SOLVER
+         ***********************************************************************/
+        function clearHints() {
+            state.hintSafe.clear();
+            state.hintMines.clear();
+            state.hintSources.clear();
+            highlightTierPill(0);
+        }
+
+        function highlightTierPill(tier) {
+            for (let t = 1; t <= 3; t++) {
+                const el = document.getElementById(`tier-pill-${t}`);
+                if (!el) continue;
+                if (t === tier) {
+                    el.className = 'bg-cyan-950/80 border-2 border-cyan-400 rounded-lg p-2 text-center shadow-lg shadow-cyan-500/20 scale-105 transition-all';
+                } else {
+                    el.className = 'bg-slate-950 border border-slate-800 rounded-lg p-2 text-center opacity-75 transition-all';
+                }
+            }
+        }
+
+        function appendCSPLog(tag, message, color = 'cyan') {
+            const container = document.getElementById('csp-log-container');
+            const item = document.createElement('div');
+            const colorMap = {
+                cyan: 'text-cyan-400 border-cyan-500/30 bg-cyan-950/20',
+                emerald: 'text-emerald-400 border-emerald-500/30 bg-emerald-950/20',
+                amber: 'text-amber-400 border-amber-500/30 bg-amber-950/20',
+                purple: 'text-purple-400 border-purple-500/30 bg-purple-950/20',
+                rose: 'text-rose-400 border-rose-500/30 bg-rose-950/20'
+            };
+            const cClass = colorMap[color] || colorMap.cyan;
+
+            item.className = `p-2 rounded border ${cClass} leading-relaxed text-[11px]`;
+            item.innerHTML = `<span class="font-bold">[${tag}]</span> <span class="text-slate-200">${message}</span>`;
+            container.prepend(item);
+        }
+
+        function clearCSPLog() {
+            document.getElementById('csp-log-container').innerHTML = '';
+        }
+
+        /**
+         * Verify player's flags before running CSP solver so erroneous manual flags don't corrupt equations
+         */
+        function validatePlayerFlags() {
+            const wrongFlags = [];
+            for (const fk of state.flagged) {
+                if (!state.mines.has(fk)) wrongFlags.push(fk);
+            }
+            if (wrongFlags.length > 0) {
+                for (const fk of wrongFlags) state.flagged.delete(fk);
+                const listStr = wrongFlags.map(k => coordLabel(...parseKey(k))).join(', ');
+                appendCSPLog('SỬA LỖI CỜ', `Phát hiện ${wrongFlags.length} cờ cắm sai tại ${listStr}. Đã tự động gỡ cờ sai để bảo toàn hệ phương trình CSP.`, 'rose');
+            }
+        }
+
+        function runCSPHint() {
+            if (state.gameOver) return;
+            if (!state.started) {
+                const r0 = Math.floor(state.rows / 2);
+                const c0 = Math.floor(state.cols / 2);
+                state.hintSafe = new Set([keyOf(r0, c0)]);
+                appendCSPLog('GỢI Ý MỞ MÀN', `Hãy nhấp vào ô trung tâm ${coordLabel(r0, c0)} để mở toang vùng an toàn 5×5 đầu tiên!`, 'emerald');
+                sound.hint();
+                updateAllCellsVisual();
+                return;
+            }
+
+            validatePlayerFlags();
+
+            const res = RadarCSPSolver.findNextStep(
+                state.rows, state.cols, state.numMines, state.board, state.revealed, state.flagged
+            );
+
+            if (!res || (res.safe.size === 0 && res.mines.size === 0)) {
+                appendCSPLog('BẾ TẮC 50-50', 'Hệ phương trình hiện tại dưới định (Under-determined), không có biến biên nào cố định 100%.', 'rose');
+                return;
+            }
+
+            state.hintSafe = res.safe;
+            state.hintMines = res.mines;
+            state.hintSources = res.sources;
+            highlightTierPill(res.tier);
+            sound.hint();
+
+            const safeCoords = Array.from(res.safe).slice(0, 4).map(k => coordLabel(...parseKey(k))).join(', ');
+            const mineCoords = Array.from(res.mines).slice(0, 4).map(k => coordLabel(...parseKey(k))).join(', ');
+
+            const tierColor = res.tier === 1 ? 'cyan' : (res.tier === 2 ? 'amber' : 'purple');
+            let detail = `<strong>${res.method}:</strong> ${res.explanation}`;
+            if (res.safe.size > 0) detail += `<br>👉 <span class="text-emerald-300">Mở an toàn (${res.safe.size} ô): ${safeCoords}${res.safe.size > 4 ? '...' : ''}</span>`;
+            if (res.mines.size > 0) detail += `<br>🚩 <span class="text-rose-300">Cắm cờ mìn (${res.mines.size} ô): ${mineCoords}${res.mines.size > 4 ? '...' : ''}</span>`;
+
+            appendCSPLog(`TẦNG ${res.tier} CSP`, detail, tierColor);
+            updateAllCellsVisual();
+        }
+
+        function runCSPStep() {
+            if (state.gameOver) return false;
+
+            if (!state.started) {
+                const r0 = Math.floor(state.rows / 2);
+                const c0 = Math.floor(state.cols / 2);
+                handleCellReveal(r0, c0);
+                appendCSPLog('BƯỚC 1', `Mở tâm bảng ${coordLabel(r0, c0)} (vùng 5×5 = 0 mìn), kích hoạt lan truyền BFS.`, 'emerald');
+                return true;
+            }
+
+            validatePlayerFlags();
+
+            const res = RadarCSPSolver.findNextStep(
+                state.rows, state.cols, state.numMines, state.board, state.revealed, state.flagged
+            );
+
+            if (!res || (res.safe.size === 0 && res.mines.size === 0)) {
+                appendCSPLog('DỪNG CSP', 'Không còn nước đi tất định 100%.', 'rose');
+                stopAutoSolve();
+                return false;
+            }
+
+            highlightTierPill(res.tier);
+            const tierColor = res.tier === 1 ? 'cyan' : (res.tier === 2 ? 'amber' : 'purple');
+            appendCSPLog(`TẦNG ${res.tier} CSP`, `<strong>${res.method}:</strong> ${res.explanation}`, tierColor);
+
+            for (const mk of res.mines) {
+                state.flagged.add(mk);
+            }
+            for (const sk of res.safe) {
+                const [sr, sc] = parseKey(sk);
+                floodRevealOnSet(sr, sc, state.rows, state.cols, state.board, state.revealed, state.flagged);
+            }
+
+            sound.click();
+            checkWinCondition();
+            updateHUD();
+            updateAllCellsVisual();
+            return true;
+        }
+
+        function toggleAutoSolve() {
+            if (state.autoSolveInterval) {
+                stopAutoSolve();
+            } else {
+                if (state.gameOver) resetGame();
+                const btn = document.getElementById('btn-csp-auto');
+                btn.className = 'px-3 py-1.5 rounded-lg bg-rose-500/25 text-rose-300 border border-rose-500/50 text-xs font-semibold flex items-center gap-1.5 transition-all';
+                document.getElementById('icon-auto-solve').className = 'fa-solid fa-stop';
+                document.getElementById('text-auto-solve').textContent = 'Dừng Giải Tự Động';
+
+                runCSPStep();
+                state.autoSolveInterval = setInterval(() => {
+                    if (state.gameOver) {
+                        stopAutoSolve();
+                        return;
+                    }
+                    const stepped = runCSPStep();
+                    if (!stepped) stopAutoSolve();
+                }, 260);
+            }
+        }
+
+        function stopAutoSolve() {
+            if (state.autoSolveInterval) {
+                clearInterval(state.autoSolveInterval);
+                state.autoSolveInterval = null;
+            }
+            const btn = document.getElementById('btn-csp-auto');
+            if (btn) {
+                btn.className = 'px-3 py-1.5 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95';
+                document.getElementById('icon-auto-solve').className = 'fa-solid fa-robot';
+                document.getElementById('text-auto-solve').textContent = 'Tự Động Giải Hết';
+            }
+        }
+
+        /***********************************************************************
+         * HUD, TIMER & TOOLBAR SETTINGS
+         ***********************************************************************/
+        function startTimer() {
+            if (state.timerInterval) clearInterval(state.timerInterval);
+            state.timerSeconds = 0;
+            state.timerInterval = setInterval(() => {
+                state.timerSeconds++;
+                document.getElementById('hud-timer').textContent = formatTime(state.timerSeconds);
+            }, 1000);
+        }
+
+        function formatTime(sec) {
+            const m = Math.floor(sec / 60).toString().padStart(2, '0');
+            const s = (sec % 60).toString().padStart(2, '0');
+            return `${m}:${s}`;
+        }
+
+        function updateHUD() {
+            const remMines = state.numMines - state.flagged.size;
+            document.getElementById('hud-mines').textContent = remMines.toString().padStart(3, '0');
+            document.getElementById('hud-timer').textContent = formatTime(state.timerSeconds);
+
+            const totalSafe = Math.max(1, state.rows * state.cols - state.numMines);
+            const pct = Math.min(100, Math.floor((state.revealed.size / totalSafe) * 100));
+            document.getElementById('hud-progress').textContent = `${pct}%`;
+        }
+
+        function setPreset(presetKey) {
+            state.preset = presetKey;
+            const cfg = PRESETS[presetKey];
+            state.rows = cfg.rows;
+            state.cols = cfg.cols;
+            state.numMines = cfg.mines;
+
+            // Adjust default cell size for large grids
+            if (presetKey === 'expert') state.cellSize = 32;
+            else if (presetKey === 'intermediate') state.cellSize = 34;
+            else state.cellSize = 38;
+            document.getElementById('cell-size-label').textContent = `${state.cellSize}px`;
+
+            ['beginner', 'intermediate', 'expert', 'custom'].forEach(k => {
+                const btn = document.getElementById(`btn-preset-${k}`);
+                if (!btn) return;
+                if (k === presetKey) {
+                    btn.className = 'px-2.5 py-1.5 rounded-md transition-all bg-cyan-500/20 text-cyan-300 border border-cyan-500/40';
+                } else {
+                    btn.className = 'px-2.5 py-1.5 rounded-md transition-all text-slate-400 hover:text-slate-200';
+                }
+            });
+
+            initEmptyBoard();
+        }
+
+        function toggleNoGuessMode() {
+            state.noGuessMode = !state.noGuessMode;
+            const btn = document.getElementById('btn-noguess');
+            const txt = document.getElementById('text-noguess');
+            if (state.noGuessMode) {
+                btn.className = 'flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all bg-emerald-500/15 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/25';
+                txt.textContent = 'BẬT';
+            } else {
+                btn.className = 'flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200';
+                txt.textContent = 'TẮT';
+            }
+        }
+
+        function setInputMode(mode) {
+            state.inputMode = mode;
+            const btnRev = document.getElementById('mode-btn-reveal');
+            const btnFlg = document.getElementById('mode-btn-flag');
+            if (mode === 'reveal') {
+                btnRev.className = 'px-2.5 py-1 rounded-md font-medium flex items-center gap-1.5 bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 transition-all';
+                btnFlg.className = 'px-2.5 py-1 rounded-md font-medium flex items-center gap-1.5 text-slate-400 hover:text-slate-200 transition-all';
+            } else {
+                btnFlg.className = 'px-2.5 py-1 rounded-md font-medium flex items-center gap-1.5 bg-rose-500/20 text-rose-300 border border-rose-500/40 transition-all';
+                btnRev.className = 'px-2.5 py-1 rounded-md font-medium flex items-center gap-1.5 text-slate-400 hover:text-slate-200 transition-all';
+            }
+        }
+
+        function adjustCellSize(delta) {
+            state.cellSize = Math.min(54, Math.max(24, state.cellSize + delta));
+            document.getElementById('cell-size-label').textContent = `${state.cellSize}px`;
+            renderBoardDOM();
+            updateAllCellsVisual();
+        }
+
+        function toggleSound() {
+            sound.enabled = !sound.enabled;
+            const icon = document.getElementById('icon-sound');
+            icon.className = sound.enabled ? 'fa-solid fa-volume-high text-cyan-400' : 'fa-solid fa-volume-xmark text-slate-500';
+        }
+
+        function toggleCustomModal() {
+            const m = document.getElementById('modal-custom');
+            m.classList.toggle('hidden');
+            m.classList.toggle('flex');
+        }
+
+        function applyCustomConfig() {
+            const r = Math.min(24, Math.max(8, parseInt(document.getElementById('custom-rows').value, 10) || 12));
+            const c = Math.min(30, Math.max(8, parseInt(document.getElementById('custom-cols').value, 10) || 16));
+            const maxAllowedMines = Math.max(1, r * c - 26);
+            const m = Math.min(maxAllowedMines, Math.max(1, parseInt(document.getElementById('custom-mines').value, 10) || 20));
+
+            state.preset = 'custom';
+            state.rows = r;
+            state.cols = c;
+            state.numMines = m;
+
+            ['beginner', 'intermediate', 'expert', 'custom'].forEach(k => {
+                const btn = document.getElementById(`btn-preset-${k}`);
+                if (!btn) return;
+                if (k === 'custom') {
+                    btn.className = 'px-2.5 py-1.5 rounded-md transition-all bg-cyan-500/20 text-cyan-300 border border-cyan-500/40';
+                } else {
+                    btn.className = 'px-2.5 py-1.5 rounded-md transition-all text-slate-400 hover:text-slate-200';
+                }
+            });
+
+            toggleCustomModal();
+            initEmptyBoard();
+        }
+
+        function toggleRulesModal() {
+            const m = document.getElementById('modal-rules');
+            m.classList.toggle('hidden');
+            m.classList.toggle('flex');
+        }
+
+        function resetGame() {
+            if (state.preset !== 'custom') {
+                state.numMines = PRESETS[state.preset].mines;
+            }
+            initEmptyBoard();
+        }
+
+        // Start game on window load
+        window.onload = () => {
+            initEmptyBoard();
+        };
+    </script>
+</body>
+</html>
